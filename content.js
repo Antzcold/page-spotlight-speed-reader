@@ -443,18 +443,75 @@
   }
 
   function getReadableBlocks(root) {
+    const blocks = collectReadableBlocks(root);
+
+    // The standard p/li/h selectors miss pages whose body text is built from
+    // bare <div>s (JS-rendered apps like x.com). When those selectors cover
+    // less than 60% of the visible words under `root`, fold in the innermost
+    // text-bearing <div>s so the page reads fully instead of just the stray
+    // matching elements. The fallback is self-limiting: on a normal article
+    // every text div contains a <p>, so it contributes nothing extra.
+    const blockWords = countBlockWords(blocks);
+    const totalWords = countWords(getVisibleText(root));
+
+    if (totalWords >= 40 && blockWords < totalWords * 0.6) {
+      return mergeBlocksInOrder(blocks, collectLeafDivBlocks(root, blocks));
+    }
+
+    return blocks;
+  }
+
+  function collectReadableBlocks(root) {
     return [...root.querySelectorAll(READABLE_BLOCK_SELECTOR)].filter(
-      (element) => {
-        const text = getVisibleText(element);
-        return (
-          text.length > 30 &&
-          countWords(text) >= 6 &&
-          isVisible(element) &&
-          !element.closest(ROOT_EXCLUDED_SELECTOR) &&
-          !isDistractingBlock(element)
-        );
-      },
+      (element) => isReadableBlock(element),
     );
+  }
+
+  function collectLeafDivBlocks(root, existingBlocks) {
+    // Only divs that hold text directly (no nested readable block) are eligible,
+    // so a div wrapping <p>s is never picked and its words are not wrapped twice.
+    const candidates = [...root.querySelectorAll("div")].filter(
+      (element) =>
+        !element.querySelector(READABLE_BLOCK_SELECTOR) &&
+        isReadableBlock(element),
+    );
+
+    // Keep only the innermost candidates and drop any already covered by a
+    // standard block, leaving paragraph-like leaves in the deeply nested markup.
+    return candidates.filter(
+      (element) =>
+        !candidates.some(
+          (other) => other !== element && element.contains(other),
+        ) && !existingBlocks.some((block) => block.contains(element)),
+    );
+  }
+
+  function isReadableBlock(element) {
+    const text = getVisibleText(element);
+    return (
+      text.length > 30 &&
+      countWords(text) >= 6 &&
+      isVisible(element) &&
+      !element.closest(ROOT_EXCLUDED_SELECTOR) &&
+      !isDistractingBlock(element)
+    );
+  }
+
+  function mergeBlocksInOrder(primary, extra) {
+    if (extra.length === 0) {
+      return primary;
+    }
+
+    return [...primary, ...extra].sort((a, b) => {
+      const relation = a.compareDocumentPosition(b);
+      if (relation & Node.DOCUMENT_POSITION_FOLLOWING) {
+        return -1;
+      }
+      if (relation & Node.DOCUMENT_POSITION_PRECEDING) {
+        return 1;
+      }
+      return 0;
+    });
   }
 
   function countBlockWords(blocks) {

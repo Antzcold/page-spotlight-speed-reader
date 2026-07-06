@@ -1,5 +1,8 @@
 (() => {
-  if (window.__pageSpotlightSpeedReader) {
+  // `window` carries an extension-specific guard flag the type libs don't know about.
+  const win = /** @type {any} */ (window);
+
+  if (win.__pageSpotlightSpeedReader) {
     return;
   }
 
@@ -88,7 +91,7 @@
     return true;
   });
 
-  window.__pageSpotlightSpeedReader = true;
+  win.__pageSpotlightSpeedReader = true;
 
   async function handleMessage(message) {
     if (message?.type === "SPEED_READER_PING") {

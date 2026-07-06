@@ -11,18 +11,36 @@ const state = {
 };
 
 const els = {
-  status: document.querySelector("#status"),
-  statusDot: document.querySelector("#statusDot"),
-  toggleButton: document.querySelector("#toggleButton"),
-  stopButton: document.querySelector("#stopButton"),
-  resetButton: document.querySelector("#resetButton"),
-  decreaseSpeedButton: document.querySelector("#decreaseSpeedButton"),
-  increaseSpeedButton: document.querySelector("#increaseSpeedButton"),
-  wpmInput: document.querySelector("#wpmInput"),
-  chunkInput: document.querySelector("#chunkInput"),
-  autoScrollInput: document.querySelector("#autoScrollInput"),
-  wordCount: document.querySelector("#wordCount"),
-  timeEstimate: document.querySelector("#timeEstimate"),
+  status: /** @type {HTMLElement} */ (document.querySelector("#status")),
+  statusDot: /** @type {HTMLElement} */ (document.querySelector("#statusDot")),
+  toggleButton: /** @type {HTMLButtonElement} */ (
+    document.querySelector("#toggleButton")
+  ),
+  stopButton: /** @type {HTMLButtonElement} */ (
+    document.querySelector("#stopButton")
+  ),
+  resetButton: /** @type {HTMLButtonElement} */ (
+    document.querySelector("#resetButton")
+  ),
+  decreaseSpeedButton: /** @type {HTMLButtonElement} */ (
+    document.querySelector("#decreaseSpeedButton")
+  ),
+  increaseSpeedButton: /** @type {HTMLButtonElement} */ (
+    document.querySelector("#increaseSpeedButton")
+  ),
+  wpmInput: /** @type {HTMLInputElement} */ (
+    document.querySelector("#wpmInput")
+  ),
+  chunkInput: /** @type {HTMLInputElement} */ (
+    document.querySelector("#chunkInput")
+  ),
+  autoScrollInput: /** @type {HTMLInputElement} */ (
+    document.querySelector("#autoScrollInput")
+  ),
+  wordCount: /** @type {HTMLElement} */ (document.querySelector("#wordCount")),
+  timeEstimate: /** @type {HTMLElement} */ (
+    document.querySelector("#timeEstimate")
+  ),
 };
 
 bindControls();

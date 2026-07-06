@@ -188,6 +188,28 @@
       .note strong {
         color: var(--blue);
       }
+      a {
+        color: var(--blue);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      a code {
+        color: var(--blue);
+      }
+      .layout {
+        list-style: none;
+        padding: 0;
+        margin: 16px 0;
+      }
+      .layout li {
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .layout li:last-child {
+        border-bottom: none;
+      }
       footer {
         max-width: 880px;
         margin: 48px auto 0;
@@ -200,18 +222,139 @@
   <body>
     <header>
       <h1>How the Page Spotlight Speed Reader Works</h1>
-      <p>A tour of the five files that make the Chrome extension tick</p>
+      <p>A tour of the five core files that make the Chrome extension tick</p>
     </header>
 
     <main>
       <p class="muted">
         This extension is a
         <strong>Manifest V3 Chrome extension</strong> written in plain
-        JavaScript — no build step, no frameworks. The five files live in three
-        <em>isolated execution contexts</em> that can only talk to each other by
-        passing messages. Understanding that separation is the key to
-        understanding everything else.
+        JavaScript — no build step, no frameworks. Its five core source files
+        live in three <em>isolated execution contexts</em> that can only talk to
+        each other by passing messages. Understanding that separation is the key
+        to understanding everything else.
       </p>
+
+      <h2>Repository layout</h2>
+      <p class="muted">
+        The extension itself is build-free: the files under
+        <strong>Extension source</strong> are what Chrome loads. Everything else
+        is configuration, documentation, or dev tooling. Click any file name to
+        open it.
+      </p>
+
+      <h3>Extension source</h3>
+      <ul class="layout">
+        <li>
+          <a href="manifest.json"><code>manifest.json</code></a> — the
+          extension's config. Declares permissions (<code>activeTab</code>,
+          <code>scripting</code>, <code>storage</code>, <code>tabs</code>), the
+          background service worker, the popup, and the keyboard shortcuts.
+          Notably, <code>content.js</code> is <strong>not</strong> listed as a
+          static content script — it's injected on demand.
+        </li>
+        <li>
+          <a href="background.js"><code>background.js</code></a> — the invisible
+          service worker. Listens for keyboard shortcuts, finds the active tab,
+          ensures <code>content.js</code> is loaded there (ping-then-inject),
+          and forwards a <code>SPEED_READER_*</code> message. Owns no UI.
+        </li>
+        <li>
+          <a href="content.js"><code>content.js</code></a> — the reading engine.
+          Runs inside the page. Finds the readable article, wraps each word in a
+          span, and highlights one chunk at a time on a
+          <code>setTimeout</code> timer. The only file that touches the page's
+          DOM.
+        </li>
+        <li>
+          <a href="popup.html"><code>popup.html</code></a> /
+          <a href="popup.js"><code>popup.js</code></a> /
+          <a href="popup.css"><code>popup.css</code></a> — the settings panel
+          shown when you click the extension icon. Shows WPM, chunk size,
+          auto-scroll, status, and a live word/time estimate; sends messages to
+          <code>content.js</code>.
+        </li>
+      </ul>
+
+      <h3>Documentation</h3>
+      <ul class="layout">
+        <li>
+          <a href="README.md"><code>README.md</code></a> — user-facing intro,
+          install + usage, dev workflow.
+        </li>
+        <li>
+          <a href="DEVELOPMENT.md"><code>DEVELOPMENT.md</code></a> —
+          plain-language explanation of the dev tooling and the day-to-day loop,
+          written for someone new to software development.
+        </li>
+        <li>
+          <a href="CLAUDE.md"><code>CLAUDE.md</code></a> — guidance for Claude
+          Code (and any AI assistant) working in this repo: architecture,
+          message protocol, and the intentionally-duplicated constants caveat.
+        </li>
+        <li>
+          <a href="CHANGELOG.md"><code>CHANGELOG.md</code></a> — release history
+          in <a href="https://keepachangelog.com">Keep a Changelog</a> format.
+          The release rule: every release is a semver bump in
+          <code>manifest.json</code> plus a changelog entry.
+        </li>
+        <li>
+          <a href="PLAN.md"><code>PLAN.md</code></a> — the original step-by-step
+          plan that set up this repo's tooling. Kept as a historical record of
+          how the project reached its current dev practice.
+        </li>
+      </ul>
+
+      <h3>Dev tooling &amp; config</h3>
+      <ul class="layout">
+        <li>
+          <a href="package.json"><code>package.json</code></a> /
+          <a href="package-lock.json"><code>package-lock.json</code></a> — npm
+          metadata for the dev tooling only (Prettier, ESLint, TypeScript,
+          <code>@types/chrome</code>). The extension has no runtime
+          dependencies.
+        </li>
+        <li>
+          <a href=".prettierrc"><code>.prettierrc</code></a> /
+          <a href=".prettierignore"><code>.prettierignore</code></a> — Prettier
+          formatting config. Prettier owns style; its config is intentionally
+          near-empty (defaults are fine).
+        </li>
+        <li>
+          <a href="eslint.config.js"><code>eslint.config.js</code></a> — ESLint
+          9 flat config. Adds only bug-pattern rules from
+          <code>@eslint/js</code> (no style rules, so it never fights Prettier)
+          and scopes globals per file (browser vs. service worker).
+        </li>
+        <li>
+          <a href="jsconfig.json"><code>jsconfig.json</code></a> — configures
+          <code>tsc</code> to type-check the plain JS (<code>checkJs: true</code
+          >, <code>strict: false</code>) using JSDoc +
+          <code>@types/chrome</code>, without rewriting anything to TypeScript.
+        </li>
+        <li>
+          <a href=".editorconfig"><code>.editorconfig</code></a> — tells editors
+          to use 2-space indent, LF line endings, UTF-8, final newline, trimmed
+          trailing whitespace.
+        </li>
+        <li>
+          <a href=".github/workflows/ci.yml"
+            ><code>.github/workflows/ci.yml</code></a
+          >
+          — GitHub Actions CI: runs <code>format:check</code>,
+          <code>lint</code>, and <code>typecheck</code> on every push and pull
+          request.
+        </li>
+        <li>
+          <a href=".gitignore"><code>.gitignore</code></a> — ignores
+          <code>node_modules/</code>, <code>dist/</code>,
+          <code>.DS_Store</code>, <code>*.zip</code>, and <code>.claude/</code>.
+        </li>
+        <li>
+          <code>how-it-works.html</code> — this page: a standalone, styled HTML
+          page that explains in depth how the five core files work together.
+        </li>
+      </ul>
 
       <h2>The three worlds</h2>
       <p>
@@ -546,6 +689,7 @@ win.__pageSpotlightSpeedReader = true;</code></pre>
 
     <footer>
       Generated from the source of the Page Spotlight Speed Reader extension.
+      See the <a href="README.md">README</a> for install and usage.
     </footer>
   </body>
 </html>

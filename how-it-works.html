@@ -24,7 +24,11 @@
         margin: 0;
         background: var(--bg);
         color: var(--text);
-        font: 16px/1.6 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        font:
+          16px/1.6 system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
           sans-serif;
         padding: 0 20px 80px;
       }
@@ -81,7 +85,12 @@
         border: 1px solid var(--border);
         border-radius: 4px;
         padding: 1px 6px;
-        font: 0.9em "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+        font:
+          0.9em "SFMono-Regular",
+          ui-monospace,
+          Menlo,
+          Consolas,
+          monospace;
         color: var(--accent);
       }
       pre {
@@ -90,7 +99,11 @@
         border-radius: 8px;
         padding: 16px;
         overflow-x: auto;
-        font: 0.85em/1.5 "SFMono-Regular", ui-monospace, Menlo, Consolas,
+        font:
+          0.85em/1.5 "SFMono-Regular",
+          ui-monospace,
+          Menlo,
+          Consolas,
           monospace;
       }
       pre code {
@@ -192,19 +205,20 @@
 
     <main>
       <p class="muted">
-        This extension is a <strong>Manifest V3 Chrome extension</strong>
-        written in plain JavaScript — no build step, no frameworks. The five
-        files live in three <em>isolated execution contexts</em> that can only
-        talk to each other by passing messages. Understanding that separation is
-        the key to understanding everything else.
+        This extension is a
+        <strong>Manifest V3 Chrome extension</strong> written in plain
+        JavaScript — no build step, no frameworks. The five files live in three
+        <em>isolated execution contexts</em> that can only talk to each other by
+        passing messages. Understanding that separation is the key to
+        understanding everything else.
       </p>
 
       <h2>The three worlds</h2>
       <p>
         Chrome deliberately keeps extension code in separate sandboxes. A
         background worker cannot touch a web page's DOM; a popup cannot run
-        forever; a content script cannot reach the popup's buttons. So the
-        files split responsibilities like this:
+        forever; a content script cannot reach the popup's buttons. So the files
+        split responsibilities like this:
       </p>
 
       <div class="card file">
@@ -265,8 +279,8 @@
         <strong>inject content.js on demand</strong> (note: content.js is
         <em>not</em> listed under <code>content_scripts</code> — it is loaded
         lazily), and <code>storage</code> lets settings persist across sessions.
-        The <code>commands</code> block maps keyboard shortcuts to named
-        actions that the background worker listens for.
+        The <code>commands</code> block maps keyboard shortcuts to named actions
+        that the background worker listens for.
       </p>
       <div class="note">
         <strong>Why lazy injection?</strong> Listing a content script in the
@@ -276,21 +290,20 @@
       </div>
 
       <h2>2. background.js — the keyboard dispatcher</h2>
-      <p>
-        The worker's only entry point is a single listener:
-      </p>
+      <p>The worker's only entry point is a single listener:</p>
       <pre><code>chrome.commands.onCommand.addListener(async (command) => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id || !isSupportedUrl(tab.url)) return;
   await ensureContentScript(tab.id);
   // ...then send the right SPEED_READER_* message for this command
 });</code></pre>
-      <p>
-        The flow for every shortcut is identical:
-      </p>
+      <p>The flow for every shortcut is identical:</p>
       <ol>
         <li>Find the active tab; bail out if it's not <code>http(s)</code>.</li>
-        <li>Call <code>ensureContentScript()</code> — a <strong>ping-then-inject</strong> pattern.</li>
+        <li>
+          Call <code>ensureContentScript()</code> — a
+          <strong>ping-then-inject</strong> pattern.
+        </li>
         <li>Send a message telling content.js what to do.</li>
       </ol>
       <pre><code>async function ensureContentScript(tabId) {
@@ -316,8 +329,9 @@
       <h2>3. popup.html + popup.js — the control panel</h2>
       <p>
         The HTML is just markup: status text, Start/Stop/Reset buttons, a WPM
-        stepper, chunk size, and an auto-scroll checkbox. <code>popup.js</code>
-        gives it behavior. On open, <code>init()</code> runs:
+        stepper, chunk size, and an auto-scroll checkbox.
+        <code>popup.js</code> gives it behavior. On open,
+        <code>init()</code> runs:
       </p>
       <pre><code>const settings = await chrome.storage.sync.get(DEFAULT_SETTINGS);
 applySettingsToInputs(settings);
@@ -372,15 +386,22 @@ win.__pageSpotlightSpeedReader = true;</code></pre>
         </tr>
         <tr>
           <td><code>SPEED_READER_PING</code></td>
-          <td>Returns status only — used to detect whether the script is loaded.</td>
+          <td>
+            Returns status only — used to detect whether the script is loaded.
+          </td>
         </tr>
         <tr>
           <td><code>SPEED_READER_STATUS</code> / <code>_ESTIMATE</code></td>
-          <td>Returns current status + word count, without changing anything.</td>
+          <td>
+            Returns current status + word count, without changing anything.
+          </td>
         </tr>
         <tr>
           <td><code>SPEED_READER_TOGGLE</code></td>
-          <td>Applies settings, then start / pause / resume depending on current state.</td>
+          <td>
+            Applies settings, then start / pause / resume depending on current
+            state.
+          </td>
         </tr>
         <tr>
           <td><code>SPEED_READER_STOP</code></td>
@@ -392,7 +413,9 @@ win.__pageSpotlightSpeedReader = true;</code></pre>
         </tr>
         <tr>
           <td><code>SPEED_READER_SETTINGS</code></td>
-          <td>Updates WPM/chunk/scroll; if running, re-highlights and reschedules.</td>
+          <td>
+            Updates WPM/chunk/scroll; if running, re-highlights and reschedules.
+          </td>
         </tr>
       </table>
       <p>
@@ -404,23 +427,24 @@ win.__pageSpotlightSpeedReader = true;</code></pre>
       <p>
         <code>findReadableRoot()</code> scores candidate elements
         (<code>article</code>, <code>main</code>, <code>section</code>,
-        <code>div</code>) by visible text length plus 250 points per
-        substantial <code>&lt;p&gt;</code>, with a heading bonus. It prefers a
-        direct <code>article</code>/<code>main</code>/<code>[role='main']</code>
-        that scores ≥ 120, otherwise picks the highest-scoring candidate ≥ 240.
-        If the chosen root covers less than 85% of the page's readable words,
-        it expands to the common ancestor of all readable blocks. Excluded
-        selectors (nav, header, footer, ads, forms) and "distraction"
-        heuristics (class/id matching <code>ad</code>, <code>newsletter</code>,
+        <code>div</code>) by visible text length plus 250 points per substantial
+        <code>&lt;p&gt;</code>, with a heading bonus. It prefers a direct
+        <code>article</code>/<code>main</code>/<code>[role='main']</code> that
+        scores ≥ 120, otherwise picks the highest-scoring candidate ≥ 240. If
+        the chosen root covers less than 85% of the page's readable words, it
+        expands to the common ancestor of all readable blocks. Excluded
+        selectors (nav, header, footer, ads, forms) and "distraction" heuristics
+        (class/id matching <code>ad</code>, <code>newsletter</code>,
         <code>subscribe</code>…) filter out junk.
       </p>
 
       <h3>Wrapping words</h3>
       <p>
-        <code>wrapWords()</code> walks the readable blocks
-        (<code>p, li, blockquote, h1–h3</code>, plus leaf <code>div</code>s on
-        pages like social apps that lack real <code>&lt;p&gt;</code>s), splits
-        each text node into words/whitespace, and replaces the text with
+        <code>wrapWords()</code> walks the readable blocks (<code
+          >p, li, blockquote, h1–h3</code
+        >, plus leaf <code>div</code>s on pages like social apps that lack real
+        <code>&lt;p&gt;</code>s), splits each text node into words/whitespace,
+        and replaces the text with
         <code>&lt;span class="pssr-word"&gt;</code> elements. The original text
         node is saved in <code>reader.originals</code> so <code>reset()</code>
         can swap it back and leave the page exactly as it found it.
@@ -484,8 +508,8 @@ win.__pageSpotlightSpeedReader = true;</code></pre>
           <div class="num">5</div>
           <div>
             You open the popup. <strong>popup.js</strong> pings (succeeds this
-            time), asks <code>SPEED_READER_STATUS</code>, and renders
-            "Running" plus the word/time estimate.
+            time), asks <code>SPEED_READER_STATUS</code>, and renders "Running"
+            plus the word/time estimate.
           </div>
         </div>
         <div class="step">
@@ -494,8 +518,8 @@ win.__pageSpotlightSpeedReader = true;</code></pre>
             You press <code>Command+Shift+Up</code>. background.js bumps WPM by
             25 in <code>chrome.storage.sync</code> and sends
             <code>SPEED_READER_SETTINGS</code>. content.js reschedules the loop;
-            the open popup's <code>storage.onChanged</code> listener updates
-            the WPM field live.
+            the open popup's <code>storage.onChanged</code> listener updates the
+            WPM field live.
           </div>
         </div>
         <div class="step">

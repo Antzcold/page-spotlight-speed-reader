@@ -27,3 +27,16 @@ Default shortcuts:
 - Stop and clean up: `Alt+S`
 
 On macOS, Chrome may show the shortcuts as `Command+Shift+Y`, `Command+Shift+Up`, `Command+Shift+Down`, and `Command+Shift+S`.
+
+## Development
+
+This is a vanilla-JS extension with no build step. Developer tooling (formatting,
+linting, type-checking, packaging) is provided via npm scripts:
+
+- `npm install` — install dev tooling once.
+- `npm run format` — reformat code with Prettier.
+- `npm run lint` — run ESLint.
+- `npm run typecheck` — type-check the JS with `tsc` + JSDoc.
+- `npm run package` — build `dist/extension.zip` for the Chrome Web Store.
+
+After editing extension files, run `npm run format && npm run lint && npm run typecheck`, then reload the unpacked extension at `chrome://extensions` and refresh the page you want to read. See [DEVELOPMENT.md](DEVELOPMENT.md) for the full workflow and the reasoning behind each tool.

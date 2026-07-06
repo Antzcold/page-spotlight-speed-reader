@@ -4,14 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-"Page Spotlight Speed Reader" — a Manifest V3 Chrome extension written in plain JavaScript (no build system, no dependencies, no tests). It highlights words in the main readable area of a page at a configurable pace.
+"Page Spotlight Speed Reader" — a Manifest V3 Chrome extension written in plain JavaScript (no build system, no runtime dependencies). It highlights words in the main readable area of a page at a configurable pace.
 
 ## Development Workflow
 
-There are no build, lint, or test commands. To develop:
+The extension itself is build-free. Dev tooling is provided via npm (devDependencies only):
 
-1. Load the folder as an unpacked extension at `chrome://extensions` (Developer mode → Load unpacked).
-2. After editing any file, click the reload button for the extension on `chrome://extensions`, then refresh the target page (content scripts already injected into open tabs are not replaced by a reload alone).
+- `npm run format` / `npm run format:check` — Prettier formatting (owns style).
+- `npm run lint` — ESLint 9 flat config (bug patterns; no style rules).
+- `npm run typecheck` — `tsc -p jsconfig.json --noEmit` (checkJs + JSDoc + `@types/chrome`; `strict: false`, no TS rewrite).
+- `npm run package` — zip only the Web Store files into `dist/extension.zip`.
+
+CI (`.github/workflows/ci.yml`) runs `format:check`, `lint`, and `typecheck` on push and PR. There are no automated tests yet; the path to them is documented in `DEVELOPMENT.md`.
+
+To develop:
+
+1. `npm install` once, then `npm run format && npm run lint && npm run typecheck` after edits.
+2. Load the folder as an unpacked extension at `chrome://extensions` (Developer mode → Load unpacked).
+3. After editing any file, click the reload button for the extension on `chrome://extensions`, then refresh the target page (content scripts already injected into open tabs are not replaced by a reload alone).
 
 ## Architecture
 

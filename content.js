@@ -24,7 +24,7 @@
     "svg",
     "canvas",
     "[contenteditable='true']",
-    "[aria-hidden='true']"
+    "[aria-hidden='true']",
   ].join(",");
 
   const ROOT_EXCLUDED_SELECTOR = [
@@ -45,17 +45,28 @@
     "svg",
     "canvas",
     "[contenteditable='true']",
-    "[aria-hidden='true']"
+    "[aria-hidden='true']",
   ].join(",");
   const READABLE_BLOCK_SELECTOR = "p, li, blockquote, h1, h2, h3";
-  const DISTRACTION_PATTERN = /(^|[-_\s])(ad|ads|advert|advertisement|newsletter|subscribe|subscription|signup|sign-up|promo|sponsor|sponsored)([-_\s]|$)/;
-  const DISTRACTION_MARKERS = ["advert", "newsletter", "subscribe", "subscription", "signup", "sign-up", "promo", "sponsor"];
-  const DISTRACTION_COPY_PATTERN = /\b(advertisement|sponsored|sponsor|subscribe|subscription|sign up|signup|newsletter|inbox|join us|receive our content)\b/i;
+  const DISTRACTION_PATTERN =
+    /(^|[-_\s])(ad|ads|advert|advertisement|newsletter|subscribe|subscription|signup|sign-up|promo|sponsor|sponsored)([-_\s]|$)/;
+  const DISTRACTION_MARKERS = [
+    "advert",
+    "newsletter",
+    "subscribe",
+    "subscription",
+    "signup",
+    "sign-up",
+    "promo",
+    "sponsor",
+  ];
+  const DISTRACTION_COPY_PATTERN =
+    /\b(advertisement|sponsored|sponsor|subscribe|subscription|sign up|signup|newsletter|inbox|join us|receive our content)\b/i;
 
   const DEFAULT_SETTINGS = {
     wpm: 350,
     chunkSize: 1,
-    autoScroll: true
+    autoScroll: true,
   };
 
   const reader = {
@@ -67,7 +78,7 @@
     index: 0,
     timer: null,
     styleEl: null,
-    hudTimer: null
+    hudTimer: null,
   };
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -197,7 +208,10 @@
       return;
     }
 
-    const interval = Math.max(80, (60000 / reader.settings.wpm) * reader.settings.chunkSize);
+    const interval = Math.max(
+      80,
+      (60000 / reader.settings.wpm) * reader.settings.chunkSize,
+    );
     reader.timer = window.setTimeout(() => {
       const nextIndex = reader.index + reader.settings.chunkSize;
 
@@ -216,16 +230,26 @@
   }
 
   function highlightCurrentChunk() {
-    const chunkEnd = Math.min(reader.index + reader.settings.chunkSize, reader.wordSpans.length);
+    const chunkEnd = Math.min(
+      reader.index + reader.settings.chunkSize,
+      reader.wordSpans.length,
+    );
 
     reader.wordSpans.forEach((span, idx) => {
       span.classList.toggle(`${CLASS_PREFIX}-read`, idx < reader.index);
-      span.classList.toggle(`${CLASS_PREFIX}-active`, idx >= reader.index && idx < chunkEnd);
+      span.classList.toggle(
+        `${CLASS_PREFIX}-active`,
+        idx >= reader.index && idx < chunkEnd,
+      );
     });
 
     const active = reader.wordSpans[reader.index];
     if (active && reader.settings.autoScroll) {
-      active.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+      active.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+        inline: "nearest",
+      });
     }
   }
 
@@ -272,7 +296,7 @@
 
       reader.originals.push({
         wrapper,
-        node: textNode.cloneNode(true)
+        node: textNode.cloneNode(true),
       });
 
       parent.replaceChild(wrapper, textNode);
@@ -305,24 +329,24 @@
 
   function collectTextNodes(root) {
     const nodes = [];
-    const walker = document.createTreeWalker(
-      root,
-      NodeFilter.SHOW_TEXT,
-      {
-        acceptNode(node) {
-          const parent = node.parentElement;
-          if (!parent || !node.nodeValue?.trim()) {
-            return NodeFilter.FILTER_REJECT;
-          }
-
-          if (parent.closest(EXCLUDED_SELECTOR) || isDistracting(parent) || !isVisible(parent)) {
-            return NodeFilter.FILTER_REJECT;
-          }
-
-          return NodeFilter.FILTER_ACCEPT;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const parent = node.parentElement;
+        if (!parent || !node.nodeValue?.trim()) {
+          return NodeFilter.FILTER_REJECT;
         }
-      }
-    );
+
+        if (
+          parent.closest(EXCLUDED_SELECTOR) ||
+          isDistracting(parent) ||
+          !isVisible(parent)
+        ) {
+          return NodeFilter.FILTER_REJECT;
+        }
+
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
 
     while (walker.nextNode()) {
       nodes.push(walker.currentNode);
@@ -340,21 +364,35 @@
     const readableWords = countBlockWords(readableBlocks);
     const direct = ["article", "main", "[role='main']"]
       .map((selector) => document.querySelector(selector))
-      .find((element) => element && isVisible(element) && scoreElement(element) >= 120);
+      .find(
+        (element) =>
+          element && isVisible(element) && scoreElement(element) >= 120,
+      );
 
     if (direct) {
       const directWords = countBlockWords(getReadableBlocks(direct));
       const expandedRoot = findCommonReadableRoot(readableBlocks);
 
-      if (expandedRoot && readableWords >= directWords + 120 && directWords < readableWords * 0.85) {
+      if (
+        expandedRoot &&
+        readableWords >= directWords + 120 &&
+        directWords < readableWords * 0.85
+      ) {
         return expandedRoot;
       }
 
       return direct;
     }
 
-    const candidates = [...document.querySelectorAll("article, main, section, div")]
-      .filter((element) => isVisible(element) && !element.closest(ROOT_EXCLUDED_SELECTOR) && !isDistracting(element))
+    const candidates = [
+      ...document.querySelectorAll("article, main, section, div"),
+    ]
+      .filter(
+        (element) =>
+          isVisible(element) &&
+          !element.closest(ROOT_EXCLUDED_SELECTOR) &&
+          !isDistracting(element),
+      )
       .map((element) => ({ element, score: scoreElement(element) }))
       .filter((candidate) => candidate.score >= 240)
       .sort((a, b) => b.score - a.score);
@@ -364,14 +402,20 @@
       const candidateWords = countBlockWords(candidateBlocks);
       const expandedRoot = findCommonReadableRoot(readableBlocks);
 
-      if (expandedRoot && readableWords >= candidateWords + 120 && candidateWords < readableWords * 0.85) {
+      if (
+        expandedRoot &&
+        readableWords >= candidateWords + 120 &&
+        candidateWords < readableWords * 0.85
+      ) {
         return expandedRoot;
       }
 
       return candidates[0].element;
     }
 
-    return readableWords >= 120 ? findCommonReadableRoot(readableBlocks) ?? document.body : null;
+    return readableWords >= 120
+      ? (findCommonReadableRoot(readableBlocks) ?? document.body)
+      : null;
   }
 
   function scoreElement(element) {
@@ -379,8 +423,10 @@
       return 0;
     }
 
-    const paragraphs = [...element.querySelectorAll("p")]
-      .filter((paragraph) => isVisible(paragraph) && getVisibleText(paragraph).length > 30);
+    const paragraphs = [...element.querySelectorAll("p")].filter(
+      (paragraph) =>
+        isVisible(paragraph) && getVisibleText(paragraph).length > 30,
+    );
     const textLength = getVisibleText(element).length;
     const headingBonus = element.querySelector("h1, h2") ? 250 : 0;
 
@@ -388,12 +434,14 @@
   }
 
   function getVisibleText(element) {
-    return (element.innerText || element.textContent || "").replace(/\s+/g, " ").trim();
+    return (element.innerText || element.textContent || "")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   function getReadableBlocks(root) {
-    return [...root.querySelectorAll(READABLE_BLOCK_SELECTOR)]
-      .filter((element) => {
+    return [...root.querySelectorAll(READABLE_BLOCK_SELECTOR)].filter(
+      (element) => {
         const text = getVisibleText(element);
         return (
           text.length > 30 &&
@@ -402,11 +450,15 @@
           !element.closest(ROOT_EXCLUDED_SELECTOR) &&
           !isDistractingBlock(element)
         );
-      });
+      },
+    );
   }
 
   function countBlockWords(blocks) {
-    return blocks.reduce((total, block) => total + countWords(getVisibleText(block)), 0);
+    return blocks.reduce(
+      (total, block) => total + countWords(getVisibleText(block)),
+      0,
+    );
   }
 
   function findCommonReadableRoot(blocks) {
@@ -450,13 +502,16 @@
         current.id,
         current.className,
         current.getAttribute?.("role"),
-        current.getAttribute?.("aria-label")
+        current.getAttribute?.("aria-label"),
       ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
 
-      if (DISTRACTION_PATTERN.test(marker) || DISTRACTION_MARKERS.some((term) => marker.includes(term))) {
+      if (
+        DISTRACTION_PATTERN.test(marker) ||
+        DISTRACTION_MARKERS.some((term) => marker.includes(term))
+      ) {
         return true;
       }
 
@@ -475,10 +530,16 @@
     const text = getVisibleText(container);
     const wordCount = countWords(text);
     const hasSignupControl = Boolean(
-      container.querySelector("input[type='email'], input[name*='email' i], button, [role='button']")
+      container.querySelector(
+        "input[type='email'], input[name*='email' i], button, [role='button']",
+      ),
     );
 
-    return hasSignupControl && wordCount <= 140 && DISTRACTION_COPY_PATTERN.test(text);
+    return (
+      hasSignupControl &&
+      wordCount <= 140 &&
+      DISTRACTION_COPY_PATTERN.test(text)
+    );
   }
 
   function getLikelyBlockContainer(element) {
@@ -505,8 +566,12 @@
   function updateSettings(settings = {}) {
     reader.settings = {
       wpm: clamp(Number(settings.wpm) || DEFAULT_SETTINGS.wpm, 100, 1000),
-      chunkSize: clamp(Number(settings.chunkSize) || DEFAULT_SETTINGS.chunkSize, 1, 5),
-      autoScroll: Boolean(settings.autoScroll)
+      chunkSize: clamp(
+        Number(settings.chunkSize) || DEFAULT_SETTINGS.chunkSize,
+        1,
+        5,
+      ),
+      autoScroll: Boolean(settings.autoScroll),
     };
   }
 

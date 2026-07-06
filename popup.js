@@ -1,13 +1,13 @@
 const DEFAULT_SETTINGS = {
   wpm: 350,
   chunkSize: 1,
-  autoScroll: true
+  autoScroll: true,
 };
 
 const state = {
   tabId: null,
   status: "ready",
-  supported: false
+  supported: false,
 };
 
 const els = {
@@ -22,7 +22,7 @@ const els = {
   chunkInput: document.querySelector("#chunkInput"),
   autoScrollInput: document.querySelector("#autoScrollInput"),
   wordCount: document.querySelector("#wordCount"),
-  timeEstimate: document.querySelector("#timeEstimate")
+  timeEstimate: document.querySelector("#timeEstimate"),
 };
 
 bindControls();
@@ -35,7 +35,10 @@ async function init() {
     const settings = await chrome.storage.sync.get(DEFAULT_SETTINGS);
     applySettingsToInputs(settings);
 
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
     state.tabId = tab?.id ?? null;
     state.supported = Boolean(tab?.id && isSupportedUrl(tab.url));
 
@@ -92,7 +95,10 @@ async function resetReader() {
 async function saveSettings() {
   const settings = readSettingsFromInputs();
   await chrome.storage.sync.set(settings);
-  const response = await sendMessage({ type: "SPEED_READER_SETTINGS", settings });
+  const response = await sendMessage({
+    type: "SPEED_READER_SETTINGS",
+    settings,
+  });
   renderStatus(response?.status ?? state.status);
   updateEstimate(response?.estimate);
 }
@@ -115,7 +121,7 @@ async function ensureContentScript() {
   } catch {
     await chrome.scripting.executeScript({
       target: { tabId: state.tabId },
-      files: ["content.js"]
+      files: ["content.js"],
     });
     await chrome.tabs.sendMessage(state.tabId, { type: "SPEED_READER_PING" });
   }
@@ -138,7 +144,9 @@ function updateEstimate(estimate) {
   }
 
   const wpm = readSettingsFromInputs().wpm;
-  els.wordCount.textContent = new Intl.NumberFormat().format(estimate.wordCount);
+  els.wordCount.textContent = new Intl.NumberFormat().format(
+    estimate.wordCount,
+  );
   els.timeEstimate.textContent = formatDuration(estimate.wordCount, wpm);
 }
 
@@ -150,7 +158,10 @@ function updateEstimateFromCurrentWpm() {
     return;
   }
 
-  els.timeEstimate.textContent = formatDuration(wordCount, readSettingsFromInputs().wpm);
+  els.timeEstimate.textContent = formatDuration(
+    wordCount,
+    readSettingsFromInputs().wpm,
+  );
 }
 
 function applySettingsToInputs(settings) {
@@ -162,8 +173,12 @@ function applySettingsToInputs(settings) {
 function readSettingsFromInputs() {
   return {
     wpm: clamp(Number(els.wpmInput.value) || DEFAULT_SETTINGS.wpm, 100, 1000),
-    chunkSize: clamp(Number(els.chunkInput.value) || DEFAULT_SETTINGS.chunkSize, 1, 5),
-    autoScroll: els.autoScrollInput.checked
+    chunkSize: clamp(
+      Number(els.chunkInput.value) || DEFAULT_SETTINGS.chunkSize,
+      1,
+      5,
+    ),
+    autoScroll: els.autoScrollInput.checked,
   };
 }
 
@@ -178,7 +193,7 @@ function renderStatus(status) {
     done: "Finished",
     no_content: "No readable content found",
     unsupported: "Page unsupported",
-    injection_error: "Could not start on this page"
+    injection_error: "Could not start on this page",
   };
 
   els.status.textContent = labels[status] ?? "Ready";
@@ -188,7 +203,11 @@ function renderStatus(status) {
     els.statusDot.classList.add("running");
   } else if (status === "paused") {
     els.statusDot.classList.add("paused");
-  } else if (status === "no_content" || status === "unsupported" || status === "injection_error") {
+  } else if (
+    status === "no_content" ||
+    status === "unsupported" ||
+    status === "injection_error"
+  ) {
     els.statusDot.classList.add("error");
   }
 }
@@ -202,7 +221,7 @@ function setControlsEnabled(enabled) {
     els.increaseSpeedButton,
     els.wpmInput,
     els.chunkInput,
-    els.autoScrollInput
+    els.autoScrollInput,
   ]) {
     element.disabled = !enabled;
   }
@@ -232,7 +251,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
   applySettingsToInputs({
     ...readSettingsFromInputs(),
-    ...changedSettings
+    ...changedSettings,
   });
   updateEstimateFromCurrentWpm();
 });
@@ -260,5 +279,7 @@ function formatDuration(wordCount, wpm) {
 
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
-  return remainingMinutes === 0 ? `${hours}h` : `${hours}h ${remainingMinutes}m`;
+  return remainingMinutes === 0
+    ? `${hours}h`
+    : `${hours}h ${remainingMinutes}m`;
 }

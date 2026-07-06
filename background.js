@@ -1,7 +1,7 @@
 const DEFAULT_SETTINGS = {
   wpm: 350,
   chunkSize: 1,
-  autoScroll: true
+  autoScroll: true,
 };
 
 chrome.commands.onCommand.addListener(async (command) => {
@@ -29,7 +29,7 @@ chrome.commands.onCommand.addListener(async (command) => {
     const delta = command === "increase-speed" ? 25 : -25;
     const next = {
       ...settings,
-      wpm: clamp(settings.wpm + delta, 100, 1000)
+      wpm: clamp(settings.wpm + delta, 100, 1000),
     };
 
     await chrome.storage.sync.set(next);
@@ -47,7 +47,7 @@ async function ensureContentScript(tabId) {
   } catch {
     await chrome.scripting.executeScript({
       target: { tabId },
-      files: ["content.js"]
+      files: ["content.js"],
     });
   }
 }

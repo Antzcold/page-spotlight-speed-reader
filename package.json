@@ -8,7 +8,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
-    "typecheck": "tsc -p jsconfig.json --noEmit"
+    "typecheck": "tsc -p jsconfig.json --noEmit",
+    "package": "rm -rf dist && mkdir -p dist && zip dist/extension.zip manifest.json background.js content.js popup.html popup.js popup.css && if [ -d icons ]; then zip -r dist/extension.zip icons; fi"
   },
   "repository": {
     "type": "git",

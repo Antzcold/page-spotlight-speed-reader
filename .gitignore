@@ -1,0 +1,7 @@
+node_modules/
+.DS_Store
+*.zip
+dist/
+
+# Local Claude Code session/permission settings
+.claude/

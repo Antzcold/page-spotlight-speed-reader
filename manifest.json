@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "Page Spotlight Speed Reader",
+  "version": "1.0.0",
+  "description": "Read faster with an on-page word spotlight that paces through article text.",
+  "permissions": ["activeTab", "scripting", "storage", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Speed Reader",
+    "default_popup": "popup.html"
+  },
+  "commands": {
+    "toggle-reader": {
+      "suggested_key": {
+        "default": "Alt+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Start, pause, or resume the speed reader"
+    },
+    "increase-speed": {
+      "suggested_key": {
+        "default": "Alt+Up",
+        "mac": "Command+Shift+Up"
+      },
+      "description": "Increase reading speed"
+    },
+    "decrease-speed": {
+      "suggested_key": {
+        "default": "Alt+Down",
+        "mac": "Command+Shift+Down"
+      },
+      "description": "Decrease reading speed"
+    },
+    "stop-reader": {
+      "suggested_key": {
+        "default": "Alt+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "Stop and clean up the speed reader"
+    }
+  }
+}

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Speed Reader</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="panel">
+      <header class="header">
+        <div>
+          <h1>Speed Reader</h1>
+          <p id="status" class="status">Ready</p>
+        </div>
+        <span id="statusDot" class="status-dot" aria-hidden="true"></span>
+      </header>
+
+      <section class="controls" aria-label="Reader controls">
+        <button id="toggleButton" class="button primary" type="button">Start</button>
+        <button id="stopButton" class="button" type="button">Stop</button>
+        <button id="resetButton" class="button subtle" type="button">Reset</button>
+      </section>
+
+      <section class="estimate" aria-label="Article estimate">
+        <div>
+          <span class="estimate-label">Article words</span>
+          <strong id="wordCount">-</strong>
+        </div>
+        <div>
+          <span class="estimate-label">Est. time</span>
+          <strong id="timeEstimate">-</strong>
+        </div>
+      </section>
+
+      <section class="field speed-field" aria-label="Reading speed">
+        <span>Words per minute</span>
+        <div class="stepper">
+          <button id="decreaseSpeedButton" class="icon-button" type="button" aria-label="Decrease speed">-</button>
+          <input id="wpmInput" type="number" min="100" max="1000" step="25" value="350">
+          <button id="increaseSpeedButton" class="icon-button" type="button" aria-label="Increase speed">+</button>
+        </div>
+      </section>
+
+      <label class="field" for="chunkInput">
+        <span>Chunk size</span>
+        <input id="chunkInput" type="number" min="1" max="5" step="1" value="1">
+      </label>
+
+      <label class="toggle" for="autoScrollInput">
+        <span>Auto-scroll</span>
+        <input id="autoScrollInput" type="checkbox" checked>
+      </label>
+
+      <footer class="shortcuts" aria-label="Keyboard shortcuts">
+        <span>Toggle: Command+Shift+Y</span>
+        <span>Speed: Command+Shift+Up / Command+Shift+Down</span>
+      </footer>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

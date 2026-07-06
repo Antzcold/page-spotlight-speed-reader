@@ -2,10 +2,12 @@
   "name": "speed-reader-plugin",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "A Manifest V3 Chrome extension that highlights words in the main readable area of a page so you can pace your reading.",
   "scripts": {
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "lint": "eslint ."
   },
   "repository": {
     "type": "git",
@@ -24,6 +26,9 @@
   },
   "homepage": "https://github.com/Antzcold/page-spotlight-speed-reader#readme",
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "eslint": "^9.39.4",
+    "globals": "^17.7.0",
     "prettier": "^3.9.4"
   }
 }

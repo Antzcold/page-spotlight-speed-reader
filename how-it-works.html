@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>How the Page Spotlight Speed Reader Works</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #111827;
+        --text: #e5e7eb;
+        --muted: #94a3b8;
+        --accent: #ffdf5f;
+        --accent-text: #111827;
+        --blue: #60a5fa;
+        --green: #4ade80;
+        --border: #1f2937;
+        --code-bg: #0b1120;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 16px/1.6 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        padding: 0 20px 80px;
+      }
+      header {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 48px 0 24px;
+        text-align: center;
+      }
+      header h1 {
+        font-size: 2rem;
+        margin: 0 0 8px;
+      }
+      header p {
+        color: var(--muted);
+        margin: 0;
+      }
+      main {
+        max-width: 880px;
+        margin: 0 auto;
+      }
+      h2 {
+        margin-top: 48px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+      }
+      h3 {
+        color: var(--accent);
+        margin-top: 32px;
+      }
+      p,
+      li {
+        color: var(--text);
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin: 16px 0;
+      }
+      .file {
+        border-left: 3px solid var(--blue);
+      }
+      .file h3 {
+        color: var(--blue);
+        margin-top: 0;
+      }
+      code {
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 1px 6px;
+        font: 0.9em "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+        color: var(--accent);
+      }
+      pre {
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px;
+        overflow-x: auto;
+        font: 0.85em/1.5 "SFMono-Regular", ui-monospace, Menlo, Consolas,
+          monospace;
+      }
+      pre code {
+        background: none;
+        border: none;
+        padding: 0;
+        color: var(--text);
+      }
+      .tag {
+        display: inline-block;
+        font-size: 0.75em;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: var(--accent);
+        color: var(--accent-text);
+        margin-left: 8px;
+        vertical-align: middle;
+      }
+      .tag.bg {
+        background: var(--blue);
+        color: #0b1120;
+      }
+      .tag.popup {
+        background: var(--green);
+        color: #0b1120;
+      }
+      .tag.content {
+        background: #f472b6;
+        color: #0b1120;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 16px 0;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+      th {
+        color: var(--accent);
+        font-size: 0.85em;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .flow {
+        display: grid;
+        gap: 12px;
+        margin: 24px 0;
+      }
+      .step {
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 14px 18px;
+      }
+      .step .num {
+        flex: 0 0 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: var(--accent-text);
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .note {
+        background: rgba(96, 165, 250, 0.08);
+        border: 1px solid rgba(96, 165, 250, 0.3);
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin: 16px 0;
+      }
+      .note strong {
+        color: var(--blue);
+      }
+      footer {
+        max-width: 880px;
+        margin: 48px auto 0;
+        color: var(--muted);
+        font-size: 0.9em;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>How the Page Spotlight Speed Reader Works</h1>
+      <p>A tour of the five files that make the Chrome extension tick</p>
+    </header>
+
+    <main>
+      <p class="muted">
+        This extension is a <strong>Manifest V3 Chrome extension</strong>
+        written in plain JavaScript — no build step, no frameworks. The five
+        files live in three <em>isolated execution contexts</em> that can only
+        talk to each other by passing messages. Understanding that separation is
+        the key to understanding everything else.
+      </p>
+
+      <h2>The three worlds</h2>
+      <p>
+        Chrome deliberately keeps extension code in separate sandboxes. A
+        background worker cannot touch a web page's DOM; a popup cannot run
+        forever; a content script cannot reach the popup's buttons. So the
+        files split responsibilities like this:
+      </p>
+
+      <div class="card file">
+        <h3>manifest.json <span class="tag">manifest</span></h3>
+        <p>
+          The <strong>config file</strong> Chrome reads first. It declares the
+          extension's name, permissions, the background service worker, the
+          popup, and the keyboard shortcuts. Nothing here runs logic — it just
+          wires the other pieces together.
+        </p>
+      </div>
+
+      <div class="card file">
+        <h3>background.js <span class="tag bg">background worker</span></h3>
+        <p>
+          An invisible, event-driven <strong>service worker</strong>. It wakes
+          up when a keyboard shortcut is pressed, figures out which tab is
+          active, makes sure the content script is loaded in that tab, and
+          forwards a command. It owns <em>no UI</em>.
+        </p>
+      </div>
+
+      <div class="card file">
+        <h3>popup.html / popup.js <span class="tag popup">popup</span></h3>
+        <p>
+          The little settings panel that appears when you click the extension
+          icon. It shows WPM, chunk size, auto-scroll, status, and a word/time
+          estimate. It opens and closes with each click — it is not persistent.
+        </p>
+      </div>
+
+      <div class="card file">
+        <h3>content.js <span class="tag content">content script</span></h3>
+        <p>
+          The muscle. Once injected, it runs <em>inside the web page</em>. It
+          finds the article, wraps each word in a span, and highlights one chunk
+          at a time on a timer. It is the only file that touches the page's DOM.
+        </p>
+      </div>
+
+      <h2>1. manifest.json — the wiring diagram</h2>
+      <p>
+        Everything starts here. Chrome reads this before any code runs. The
+        important parts:
+      </p>
+      <pre><code>"permissions": ["activeTab", "scripting", "storage", "tabs"],
+"host_permissions": ["&lt;all_urls&gt;"],
+"background": { "service_worker": "background.js" },
+"action": { "default_popup": "popup.html" },
+"commands": {
+  "toggle-reader": { "suggested_key": { "default": "Alt+Y", "mac": "Command+Shift+Y" } },
+  "increase-speed": { ... },
+  "decrease-speed": { ... },
+  "stop-reader":    { ... }
+}</code></pre>
+      <p>
+        Two permissions matter most: <code>scripting</code> lets the extension
+        <strong>inject content.js on demand</strong> (note: content.js is
+        <em>not</em> listed under <code>content_scripts</code> — it is loaded
+        lazily), and <code>storage</code> lets settings persist across sessions.
+        The <code>commands</code> block maps keyboard shortcuts to named
+        actions that the background worker listens for.
+      </p>
+      <div class="note">
+        <strong>Why lazy injection?</strong> Listing a content script in the
+        manifest would force it into every page automatically, costing memory
+        and risking breakage. Instead, content.js is loaded only when the user
+        actually invokes the reader on a specific tab.
+      </div>
+
+      <h2>2. background.js — the keyboard dispatcher</h2>
+      <p>
+        The worker's only entry point is a single listener:
+      </p>
+      <pre><code>chrome.commands.onCommand.addListener(async (command) => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id || !isSupportedUrl(tab.url)) return;
+  await ensureContentScript(tab.id);
+  // ...then send the right SPEED_READER_* message for this command
+});</code></pre>
+      <p>
+        The flow for every shortcut is identical:
+      </p>
+      <ol>
+        <li>Find the active tab; bail out if it's not <code>http(s)</code>.</li>
+        <li>Call <code>ensureContentScript()</code> — a <strong>ping-then-inject</strong> pattern.</li>
+        <li>Send a message telling content.js what to do.</li>
+      </ol>
+      <pre><code>async function ensureContentScript(tabId) {
+  try {
+    await chrome.tabs.sendMessage(tabId, { type: "SPEED_READER_PING" });
+  } catch {
+    await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
+  }
+}</code></pre>
+      <p>
+        It pings the tab. If the ping succeeds, content.js is already there. If
+        it throws, the script isn't loaded yet, so it injects it. This makes the
+        shortcut idempotent — press it on a fresh tab and it loads + starts; on
+        a tab already running it just toggles.
+      </p>
+      <p>
+        For speed up/down it also updates <code>chrome.storage.sync</code>
+        <em>and</em> sends a <code>SPEED_READER_SETTINGS</code> message. Writing
+        to storage matters because the popup listens for storage changes — so a
+        shortcut-pressed speed change shows up live in an open popup.
+      </p>
+
+      <h2>3. popup.html + popup.js — the control panel</h2>
+      <p>
+        The HTML is just markup: status text, Start/Stop/Reset buttons, a WPM
+        stepper, chunk size, and an auto-scroll checkbox. <code>popup.js</code>
+        gives it behavior. On open, <code>init()</code> runs:
+      </p>
+      <pre><code>const settings = await chrome.storage.sync.get(DEFAULT_SETTINGS);
+applySettingsToInputs(settings);
+const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+if (!state.supported) { renderStatus("unsupported"); return; }
+await ensureContentScript();
+const response = await sendMessage({ type: "SPEED_READER_STATUS" });
+renderStatus(response?.status ?? "ready");
+await refreshEstimate();</code></pre>
+      <p>
+        The popup reuses the <em>same</em> ping-then-inject pattern as the
+        background worker, then asks content.js for its current status and a
+        word count so it can show "Article words / Est. time" immediately.
+      </p>
+      <p>
+        Buttons call <code>sendMessage</code> with the appropriate
+        <code>SPEED_READER_*</code> type. The popup reads back the
+        <code>{ status, estimate }</code> response and updates its labels.
+        Crucially, it also registers a storage listener:
+      </p>
+      <pre><code>chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "sync") return;
+  // merge changed settings into the inputs and recompute the time estimate
+});</code></pre>
+      <p>
+        This is what makes a keyboard-shortcut speed change (handled by the
+        background worker) reflect instantly in a popup that happens to be open.
+      </p>
+
+      <h2>4. content.js — the reading engine</h2>
+      <p>
+        This is where the actual work happens. A single IIFE guards against
+        double-injection with a window flag:
+      </p>
+      <pre><code>if (win.__pageSpotlightSpeedReader) return;
+// ...set up everything...
+win.__pageSpotlightSpeedReader = true;</code></pre>
+      <p>
+        Because Chrome can inject content.js more than once, this flag prevents
+        two readers from running on the same page.
+      </p>
+
+      <h3>The message handler</h3>
+      <p>
+        All communication from background/popup arrives at one listener. Each
+        message type maps to an action:
+      </p>
+      <table>
+        <tr>
+          <th>Message type</th>
+          <th>What content.js does</th>
+        </tr>
+        <tr>
+          <td><code>SPEED_READER_PING</code></td>
+          <td>Returns status only — used to detect whether the script is loaded.</td>
+        </tr>
+        <tr>
+          <td><code>SPEED_READER_STATUS</code> / <code>_ESTIMATE</code></td>
+          <td>Returns current status + word count, without changing anything.</td>
+        </tr>
+        <tr>
+          <td><code>SPEED_READER_TOGGLE</code></td>
+          <td>Applies settings, then start / pause / resume depending on current state.</td>
+        </tr>
+        <tr>
+          <td><code>SPEED_READER_STOP</code></td>
+          <td>Stops and tears down (restores original DOM).</td>
+        </tr>
+        <tr>
+          <td><code>SPEED_READER_RESET</code></td>
+          <td>Restores the page to its original state.</td>
+        </tr>
+        <tr>
+          <td><code>SPEED_READER_SETTINGS</code></td>
+          <td>Updates WPM/chunk/scroll; if running, re-highlights and reschedules.</td>
+        </tr>
+      </table>
+      <p>
+        Every response is the same shape — <code>{ status, estimate? }</code> —
+        so the popup can render any reply generically.
+      </p>
+
+      <h3>Finding the article</h3>
+      <p>
+        <code>findReadableRoot()</code> scores candidate elements
+        (<code>article</code>, <code>main</code>, <code>section</code>,
+        <code>div</code>) by visible text length plus 250 points per
+        substantial <code>&lt;p&gt;</code>, with a heading bonus. It prefers a
+        direct <code>article</code>/<code>main</code>/<code>[role='main']</code>
+        that scores ≥ 120, otherwise picks the highest-scoring candidate ≥ 240.
+        If the chosen root covers less than 85% of the page's readable words,
+        it expands to the common ancestor of all readable blocks. Excluded
+        selectors (nav, header, footer, ads, forms) and "distraction"
+        heuristics (class/id matching <code>ad</code>, <code>newsletter</code>,
+        <code>subscribe</code>…) filter out junk.
+      </p>
+
+      <h3>Wrapping words</h3>
+      <p>
+        <code>wrapWords()</code> walks the readable blocks
+        (<code>p, li, blockquote, h1–h3</code>, plus leaf <code>div</code>s on
+        pages like social apps that lack real <code>&lt;p&gt;</code>s), splits
+        each text node into words/whitespace, and replaces the text with
+        <code>&lt;span class="pssr-word"&gt;</code> elements. The original text
+        node is saved in <code>reader.originals</code> so <code>reset()</code>
+        can swap it back and leave the page exactly as it found it.
+      </p>
+
+      <h3>Pacing</h3>
+      <p>
+        <code>scheduleNext()</code> chains <code>setTimeout</code> calls. The
+        interval is <code>(60000 / wpm) * chunkSize</code>, floored at 80ms so
+        very high WPM can't freeze the page. Each tick advances the index by
+        <code>chunkSize</code>, applies the <code>pssr-active</code> class to
+        the current chunk (and <code>pssr-read</code> to everything before it),
+        optionally smooth-scrolls the active word into view, and schedules the
+        next tick. When the index passes the end, it clears highlights and sets
+        status to <code>done</code>.
+      </p>
+      <div class="note">
+        <strong>Why save the originals?</strong> The extension mutates the
+        page's real DOM (wrapping every word in spans). Without a restore path,
+        the page would be permanently altered. <code>reader.originals</code> is
+        the undo log — any future DOM code must keep it intact.
+      </div>
+
+      <h2>Putting it all together: a live run</h2>
+      <div class="flow">
+        <div class="step">
+          <div class="num">1</div>
+          <div>
+            You press <code>Command+Shift+Y</code>. Chrome wakes
+            <strong>background.js</strong> and fires
+            <code>commands.onCommand</code> with <code>"toggle-reader"</code>.
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">2</div>
+          <div>
+            background.js finds the active tab, calls
+            <code>ensureContentScript()</code>. The ping fails (first time), so
+            it injects <strong>content.js</strong> into the page.
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">3</div>
+          <div>
+            content.js boots, sets the
+            <code>__pageSpotlightSpeedReader</code> guard flag, and registers
+            its message listener. background.js then sends
+            <code>SPEED_READER_TOGGLE</code>.
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">4</div>
+          <div>
+            content.js finds the readable root, wraps words in spans, injects
+            the <code>pssr-*</code> styles, highlights the first chunk, and
+            starts the <code>setTimeout</code> pacing loop. Status becomes
+            <code>running</code>.
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">5</div>
+          <div>
+            You open the popup. <strong>popup.js</strong> pings (succeeds this
+            time), asks <code>SPEED_READER_STATUS</code>, and renders
+            "Running" plus the word/time estimate.
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">6</div>
+          <div>
+            You press <code>Command+Shift+Up</code>. background.js bumps WPM by
+            25 in <code>chrome.storage.sync</code> and sends
+            <code>SPEED_READER_SETTINGS</code>. content.js reschedules the loop;
+            the open popup's <code>storage.onChanged</code> listener updates
+            the WPM field live.
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">7</div>
+          <div>
+            You click Stop (or press <code>Command+Shift+S</code>). A
+            <code>SPEED_READER_STOP</code> message triggers
+            <code>reset()</code>, which clears the timer, removes the HUD, and
+            swaps each wrapper span back for its original text node — the page
+            is restored to its untouched state.
+          </div>
+        </div>
+      </div>
+
+      <h2>Why constants are duplicated</h2>
+      <p class="muted">
+        <code>DEFAULT_SETTINGS</code> (wpm 350, chunkSize 1, autoScroll true),
+        <code>clamp()</code>, <code>isSupportedUrl()</code>, and the clamp
+        ranges appear in background.js, popup.js, and content.js. The three
+        contexts can't share JavaScript modules, so each carries its own copy.
+        Keep them in sync when changing values.
+      </p>
+    </main>
+
+    <footer>
+      Generated from the source of the Page Spotlight Speed Reader extension.
+    </footer>
+  </body>
+</html>

@@ -514,6 +514,7 @@
           <!-- toc -->
           <nav class="toc">
             <a href="#worlds">The three worlds</a>
+            <a href="#flow">System map</a>
             <a href="#manifest">manifest.json</a>
             <a href="#background">background.js</a>
             <a href="#popup">popup</a>
@@ -587,6 +588,68 @@
               background ⇄ popup ⇄ content: SPEED_READER_* messages only
             </div>
           </div>
+        </section>
+
+        <!-- ============ SYSTEM MAP ============ -->
+        <section id="flow" class="section">
+          <div class="eyebrow">System map</div>
+          <h2>The whole flow on one screen</h2>
+          <p class="lead max">
+            The same three worlds, drawn as one map: both input paths at the
+            top, the shared settings store between them, and every command
+            funnelling down into content.js — the only code that touches the
+            page.
+          </p>
+          <pre>
+     keyboard shortcut                                 click on toolbar icon
+ (toggle | stop | speed +/-25)                                   |
+             |                                                   |
+             v                                                   v
+ +----------------------+    +-------------------+    +----------------------+
+ |     background.js    |    |chrome.storage.sync|    | popup.js / popup.html|
+ |   (service worker)   | set| wpm:        350   | get| WPM, chunk size,     |
+ |                      |---&gt;| chunkSize:  1     |&lt;--&gt;| auto-scroll controls |
+ | chrome.commands      | wpm| autoScroll: true  | set| start/pause/stop/    |
+ | listener             |    +-------------------+    | reset + time estimate|
+ +----------------------+       |                     +----------------------+
+       |                        | onChanged event            ^     |
+       |                        +----------------------------+     |
+       |                          (wpm changed via shortcut        |
+       |                           shows up live in the popup)     |
+       |                                                           |
+       |          BOTH SIDES USE PING-THEN-INJECT:                 |
+       |    1) sendMessage SPEED_READER_PING   "anyone there?"     |
+       |    2) silence -&gt; chrome.scripting.executeScript           |
+       |       injects content.js into the current tab             |
+       +--------------------------+--------------------------------+
+                                  |
+         --&gt; commands: TOGGLE, STOP, RESET, SETTINGS,
+                       STATUS, ESTIMATE      (via chrome.tabs.sendMessage)
+         &lt;-- reply:    { status, estimate? }
+                       status: ready|running|paused|done|no_content
+                                  |
+                                  v
+           +---------------------------------------------+
+           |                 content.js                  |
+           |     (injected reading engine; one copy      |
+           |      per page until the page reloads)       |
+           |                                             |
+           |  findReadableRoot()  scores article/main/   |
+           |                      section/div candidates |
+           |  wrapWords()         one span.pssr-word per |
+           |                      word; saves originals  |
+           |  scheduleNext()      setTimeout chain:      |
+           |                      60000/wpm * chunkSize, |
+           |                      floored at 80 ms       |
+           +---------------------------------------------+
+                   |                        ^
+          highlight current word,           |
+          #pssr-hud status overlay,   reset() restores the
+          optional auto-scroll        original text nodes
+                   v                        |
+           +---------------------------------------------+
+           |                WEB PAGE DOM                 |
+           +---------------------------------------------+</pre>
         </section>
 
         <!-- ============ 1 MANIFEST ============ -->

@@ -155,6 +155,12 @@
   }
 
   function start() {
+    // Grab any visible selection BEFORE reset()/wrapWords() touch the DOM:
+    // wrapping replaces each text node with spans, which destroys a selection
+    // anchored inside that node. Captured here, mapped to a word index while
+    // wrapping below.
+    const anchor = captureSelectionAnchor();
+
     reset();
     injectStyles();
 
@@ -164,14 +170,22 @@
       return;
     }
 
-    reader.wordSpans = wrapWords(reader.root);
+    const { spans, anchorIndex } = wrapWords(reader.root, anchor);
+    reader.wordSpans = spans;
     if (reader.wordSpans.length === 0) {
       reset();
       reader.status = "no_content";
       return;
     }
 
-    reader.index = 0;
+    reader.index = anchorIndex ?? 0;
+    // Clear the blue selection once we've honored it, so it doesn't fight the
+    // highlight. highlightCurrentChunk() dims everything before reader.index,
+    // which already shows where reading started.
+    if (anchorIndex != null) {
+      window.getSelection()?.removeAllRanges();
+    }
+
     reader.status = "running";
     highlightCurrentChunk();
     showHud(`${reader.settings.wpm} WPM`);
@@ -326,9 +340,24 @@
     }
   }
 
-  function wrapWords(root) {
+  // Returns { node, offset } for the start of a visible (non-collapsed)
+  // selection, or null. Uses the range start, not anchorNode: the anchor is
+  // where the drag began, which is the *end* of a backwards (right-to-left)
+  // selection, so it would point at the wrong word.
+  function captureSelectionAnchor() {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+      return null;
+    }
+
+    const range = selection.getRangeAt(0);
+    return { node: range.startContainer, offset: range.startOffset };
+  }
+
+  function wrapWords(root, anchor = null) {
     const textNodes = collectTextNodesFromBlocks(getReadableBlocks(root));
     const spans = [];
+    let anchorIndex = null;
 
     for (const textNode of textNodes) {
       const text = textNode.nodeValue;
@@ -341,12 +370,15 @@
         continue;
       }
 
+      const isAnchorTextNode = Boolean(anchor && textNode === anchor.node);
       const fragment = document.createDocumentFragment();
       const parts = text.match(/\S+|\s+/g) ?? [];
+      let charOffset = 0;
 
       for (const part of parts) {
         if (/^\s+$/.test(part)) {
           fragment.append(document.createTextNode(part));
+          charOffset += part.length;
           continue;
         }
 
@@ -355,6 +387,17 @@
         span.textContent = part;
         spans.push(span);
         fragment.append(span);
+
+        // The first word span whose character range extends past the caret
+        // is the start word. Compare before advancing charOffset so the range
+        // is [charOffset, charOffset + part.length).
+        if (isAnchorTextNode && anchorIndex === null) {
+          if (charOffset + part.length > anchor.offset) {
+            anchorIndex = spans.length - 1;
+          }
+        }
+
+        charOffset += part.length;
       }
 
       const wrapper = document.createElement("span");
@@ -369,7 +412,27 @@
       parent.replaceChild(wrapper, textNode);
     }
 
-    return spans;
+    // Fallback when the anchor node is an element rather than a text node
+    // (e.g. a triple-click selects a whole paragraph): pick the first span
+    // that the anchor contains, or the first one that follows it.
+    if (
+      anchor &&
+      anchorIndex === null &&
+      anchor.node.nodeType === Node.ELEMENT_NODE
+    ) {
+      for (let i = 0; i < spans.length; i++) {
+        if (
+          anchor.node.contains(spans[i]) ||
+          anchor.node.compareDocumentPosition(spans[i]) &
+            Node.DOCUMENT_POSITION_FOLLOWING
+        ) {
+          anchorIndex = i;
+          break;
+        }
+      }
+    }
+
+    return { spans, anchorIndex };
   }
 
   function getEstimate() {

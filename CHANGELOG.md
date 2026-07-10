@@ -19,6 +19,21 @@ commit.
 - **Major** (1.0.0 → 2.0.0): breaking changes (removed feature, changed
   shortcut, changed storage shape that loses user settings).
 
+## [1.1.0] - 2026-07-10
+
+### Added
+
+- **Start from anywhere in the article.** Select a word on the page (e.g.
+  double-click) then press Start — reading begins at that word, with the text
+  before it dimmed as already read.
+- **Click to jump while reading.** While the reader is running or paused,
+  click any word to move the reading position there; running keeps the pace,
+  paused stays paused, and clicking after finishing re-arms the reader at
+  that word.
+- Wrapped words now show a pointer cursor and a subtle hover background while
+  the reader is active.
+- Popup tip surfacing both gestures.
+
 ## [1.0.0] - 2026-07-06
 
 Initial public release.
@@ -35,3 +50,4 @@ Initial public release.
   and GitHub Actions CI. See `DEVELOPMENT.md`.
 
 [1.0.0]: https://github.com/Antzcold/page-spotlight-speed-reader/releases/tag/v1.0.0
+[1.1.0]: https://github.com/Antzcold/page-spotlight-speed-reader/releases/tag/v1.1.0

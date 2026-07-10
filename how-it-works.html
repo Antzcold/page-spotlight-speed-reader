@@ -580,7 +580,9 @@
                 <span class="wdesc"
                   >The muscle. Runs inside the web page: finds the article,
                   wraps every word in a span, highlights one chunk at a time on
-                  a timer. The only file that touches the page's DOM.</span
+                  a timer. Lets you start from a selected word or click a word
+                  to jump while reading. The only file that touches the page's
+                  DOM.</span
                 >
               </div>
             </div>
@@ -841,6 +843,19 @@ win.__pageSpotlightSpeedReader = true;</pre>
             <span class="c">reset()</span> can swap it back and leave the page
             exactly as it found it.
           </p>
+          <p>
+            The same pass is where "start from anywhere" is resolved. Because
+            wrapping replaces each text node, any selection pointing into it
+            would be destroyed — so <span class="c">start()</span> grabs the
+            visible selection's start first, and
+            <span class="c">wrapWords(root, anchor)</span> records the first
+            word span that extends past that caret as the starting index. Only a
+            non-collapsed (highlighted) selection counts; a stale collapsed
+            caret starts at the top. Once the reader is active, a single
+            delegated <span class="c">click</span> listener calls
+            <span class="c">jumpTo(index)</span> to move the position to any
+            clicked word.
+          </p>
 
           <h3>Pacing</h3>
           <p>
@@ -1036,13 +1051,6 @@ win.__pageSpotlightSpeedReader = true;</pre>
                     >Keep a Changelog</a
                   >
                   format. Every release = semver bump + changelog entry.</span
-                >
-              </div>
-              <div class="file-row">
-                <a class="file-name" href="PLAN.md" target="_blank">PLAN.md</a>
-                <span class="file-desc"
-                  >The original step-by-step tooling plan, kept as a historical
-                  record.</span
                 >
               </div>
             </div>

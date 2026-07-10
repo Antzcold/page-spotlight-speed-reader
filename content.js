@@ -91,6 +91,11 @@
     return true;
   });
 
+  // One delegated listener for the whole document. It only ever acts while
+  // the reader is active (wordSpans are populated), so an untouched page
+  // behaves exactly as before. See onWordClick for the guard order.
+  document.addEventListener("click", onWordClick);
+
   win.__pageSpotlightSpeedReader = true;
 
   async function handleMessage(message) {
@@ -259,6 +264,65 @@
   function clearHighlights() {
     for (const span of reader.wordSpans) {
       span.classList.remove(`${CLASS_PREFIX}-read`, `${CLASS_PREFIX}-active`);
+    }
+  }
+
+  // Shared "move the reading position" helper used by both gestures: click a
+  // word while reading (onWordClick) jumps here directly. It clamps the index,
+  // re-arms a finished reader as paused, and re-highlights. When running it
+  // reschedules so the clicked word gets a full interval instead of the
+  // remainder of the one in flight.
+  function jumpTo(index) {
+    if (reader.wordSpans.length === 0) {
+      return;
+    }
+
+    reader.index = clamp(index, 0, reader.wordSpans.length - 1);
+    if (reader.status === "done") {
+      reader.status = "paused";
+    }
+
+    highlightCurrentChunk();
+
+    if (reader.status === "running") {
+      scheduleNext();
+      showHud(`${reader.settings.wpm} WPM`);
+    } else {
+      showHud("Reading from here");
+    }
+  }
+
+  // Delegated click handler. The guards run in order so the reader never
+  // interferes with normal page interaction (text selection, links) and only
+  // jumps when the user clearly clicked a wrapped word.
+  function onWordClick(event) {
+    // 1. Reader not active — leave the page alone.
+    if (reader.wordSpans.length === 0) {
+      return;
+    }
+
+    // 2. A visible selection means the user is drag-selecting text, not
+    //    jumping. (A plain click leaves a collapsed caret, which passes.)
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) {
+      return;
+    }
+
+    // 3. The click landed outside any wrapped word.
+    const span = event.target?.closest?.(`.${CLASS_PREFIX}-word`);
+    if (!span) {
+      return;
+    }
+
+    // 4. Let links navigate instead of jumping.
+    if (span.closest("a")) {
+      return;
+    }
+
+    // 5. Map the span to its position and jump.
+    const index = reader.wordSpans.indexOf(span);
+    if (index >= 0) {
+      jumpTo(index);
     }
   }
 
@@ -652,7 +716,12 @@
     reader.styleEl.textContent = `
       .${CLASS_PREFIX}-word {
         border-radius: 0.2em;
+        cursor: pointer;
         transition: background-color 120ms ease, color 120ms ease, opacity 120ms ease;
+      }
+
+      .${CLASS_PREFIX}-word:hover {
+        background: rgba(17, 24, 39, 0.08);
       }
 
       .${CLASS_PREFIX}-word.${CLASS_PREFIX}-active {

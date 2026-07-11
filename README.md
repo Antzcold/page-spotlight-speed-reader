@@ -15,7 +15,9 @@ A Manifest V3 Chrome extension that highlights words in the main readable area o
 - Click the extension icon.
 - Set words per minute, chunk size, and auto-scroll.
 - Press **Start**.
+- **Manual mode (default):** the highlight advances only while you hold **Space** and freezes on the current chunk when you release it — hold to read, release to think. Space is left untouched when the reader isn't active or while you're typing. Turn off **Hold-to-read** in the popup for **automatic mode**, which advances on its own at the set WPM (the previous behavior).
 - **Start from anywhere:** select a word on the page (e.g. double-click) before pressing Start to begin reading there. While reading, click any word to jump to it.
+- The highlight renders as one continuous gradient band: the active chunk is solid, and the 3 words to the left fade out and the 3 to the right fade in, with the gaps between words filled so it reads as one unbroken window you can regress and preview across.
 - After changing extension files, click the reload button for this extension on `chrome://extensions`, then refresh the page you want to read.
 
 Keyboard shortcuts can be changed in `chrome://extensions/shortcuts`.

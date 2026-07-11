@@ -19,6 +19,51 @@ commit.
 - **Major** (1.0.0 → 2.0.0): breaking changes (removed feature, changed
   shortcut, changed storage shape that loses user settings).
 
+## [1.3.0] - 2026-07-11
+
+### Added
+
+- **Manual (hold-Space) mode.** A new default reading mode: the highlight
+  advances only while you hold Space and freezes on the current chunk when
+  you release it — hold to read, release to think. A fixed WPM can't match
+  the varying difficulty of real text, so you set a ceiling pace and control
+  the flow by hand. The previous behavior is now "automatic mode",
+  switchable in the popup. Space is left untouched when the reader isn't
+  active, while typing into a field, or in automatic mode.
+- **Regression and parafoveal-preview fade.** Around the highlighted chunk,
+  the 3 words to the left fade out (the eye can regress to just-read words)
+  and the 3 words to the right fade in (the parafovea can preview upcoming
+  words), turning the spotlight into a gradient window. The fade follows
+  every position change — tick, click-jump, and resume — and clamps
+  naturally at the start and end of the article.
+
+### Changed
+
+- **Continuous highlight band.** The highlight now renders as one continuous
+  gradient band: the whitespace between highlighted words is filled in so the
+  chunk and its surrounding fade read as one unbroken block, and the grey
+  ring around the active chunk is gone.
+
+### Removed
+
+- **Line-guide band.** The faint full-width stripe that tracked the line
+  being read is gone — its job (giving the eye a target after the return
+  sweep) is now done by the parafoveal preview words. The line-break dwell
+  (the first chunk of a new line lingers ~35% longer) remains.
+
+## [1.2.0] - 2026-07-10
+
+### Added
+
+- **Line guide band.** A faint full-width stripe now tracks the line being
+  read, sliding down the page as reading crosses lines — a big target the
+  eye can follow across the return sweep. It stays glued to its line
+  through scroll and reflow, covers both lines when a chunk wraps across a
+  line break, and disappears on stop, reset, or finish.
+- **Line-break pause.** The first chunk of each new line lingers ~35%
+  longer, giving the eye time to complete its sweep to the next line
+  before the highlight moves on.
+
 ## [1.1.0] - 2026-07-10
 
 ### Added
@@ -49,5 +94,7 @@ Initial public release.
 - Developer tooling: Prettier formatting, ESLint linting, `tsc` type-checking,
   and GitHub Actions CI. See `DEVELOPMENT.md`.
 
+[1.3.0]: https://github.com/Antzcold/page-spotlight-speed-reader/releases/tag/v1.3.0
 [1.0.0]: https://github.com/Antzcold/page-spotlight-speed-reader/releases/tag/v1.0.0
 [1.1.0]: https://github.com/Antzcold/page-spotlight-speed-reader/releases/tag/v1.1.0
+[1.2.0]: https://github.com/Antzcold/page-spotlight-speed-reader/releases/tag/v1.2.0

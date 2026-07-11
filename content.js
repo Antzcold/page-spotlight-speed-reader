@@ -70,18 +70,40 @@
     wpm: 350,
     chunkSize: 1,
     autoScroll: true,
+    mode: "manual",
   };
+
+  // First chunk of each new line lingers this much longer, giving the eye
+  // time to complete the return sweep to the start of the next line.
+  const LINE_BREAK_PAUSE_FACTOR = 1.35;
+
+  // How many words on each side of the active chunk get a graded fade: the
+  // words just before it (already read, open to regression) fade out and the
+  // words just after it (parafoveal preview) fade in, so the spotlight reads
+  // as one gradient window the eye can move across. The classes are listed
+  // once so highlight and cleanup can't drift apart.
+  const CONTEXT_WORDS = 3;
+  const CONTEXT_CLASSES = [
+    `${CLASS_PREFIX}-before-1`,
+    `${CLASS_PREFIX}-before-2`,
+    `${CLASS_PREFIX}-before-3`,
+    `${CLASS_PREFIX}-after-1`,
+    `${CLASS_PREFIX}-after-2`,
+    `${CLASS_PREFIX}-after-3`,
+  ];
 
   const reader = {
     settings: { ...DEFAULT_SETTINGS },
     status: "ready",
     root: null,
     wordSpans: [],
+    gapSpans: [],
     originals: [],
     index: 0,
     timer: null,
     styleEl: null,
     hudTimer: null,
+    spaceHeld: false,
   };
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -95,6 +117,12 @@
   // the reader is active (wordSpans are populated), so an untouched page
   // behaves exactly as before. See onWordClick for the guard order.
   document.addEventListener("click", onWordClick);
+  // Capture phase so a page script can't swallow Space before us. While the
+  // reader is inactive these handlers no-op, so an untouched page behaves
+  // exactly as before. See onHoldKeyDown for the guard order.
+  document.addEventListener("keydown", onHoldKeyDown, true);
+  document.addEventListener("keyup", onHoldKeyUp, true);
+  window.addEventListener("blur", onWindowBlur);
 
   win.__pageSpotlightSpeedReader = true;
 
@@ -129,6 +157,21 @@
 
     if (message?.type === "SPEED_READER_SETTINGS") {
       updateSettings(message.settings);
+
+      // Flipping to manual mid-read (e.g. via the popup toggle) parks the
+      // reader until Space is held. Switching to auto while paused just
+      // stays paused. Space already held keeps running and picks up the new
+      // pace via the reschedule below.
+      if (
+        reader.settings.mode === "manual" &&
+        reader.status === "running" &&
+        !reader.spaceHeld
+      ) {
+        pause();
+        showHud("Hold Space to read");
+        return { status: reader.status, estimate: getEstimate() };
+      }
+
       if (reader.status === "running") {
         highlightCurrentChunk();
         scheduleNext();
@@ -147,6 +190,12 @@
     }
 
     if (reader.status === "paused") {
+      // In manual mode the popup Start button must not kick off a runaway
+      // reader — Space drives it. Stay paused and remind the user.
+      if (reader.settings.mode === "manual") {
+        showHud("Hold Space to read");
+        return;
+      }
       run();
       return;
     }
@@ -170,8 +219,9 @@
       return;
     }
 
-    const { spans, anchorIndex } = wrapWords(reader.root, anchor);
+    const { spans, anchorIndex, gapSpans } = wrapWords(reader.root, anchor);
     reader.wordSpans = spans;
+    reader.gapSpans = gapSpans;
     if (reader.wordSpans.length === 0) {
       reset();
       reader.status = "no_content";
@@ -186,8 +236,18 @@
       window.getSelection()?.removeAllRanges();
     }
 
-    reader.status = "running";
     highlightCurrentChunk();
+
+    // Manual mode arms paused: the highlight sits on the first chunk and
+    // Space drives it from there. Auto mode starts running immediately, as
+    // before.
+    if (reader.settings.mode === "manual") {
+      reader.status = "paused";
+      showHud("Hold Space to read");
+      return;
+    }
+
+    reader.status = "running";
     showHud(`${reader.settings.wpm} WPM`);
     scheduleNext();
   }
@@ -219,8 +279,10 @@
 
     reader.root = null;
     reader.wordSpans = [];
+    reader.gapSpans = [];
     reader.originals = [];
     reader.index = 0;
+    reader.spaceHeld = false;
     reader.status = "ready";
   }
 
@@ -230,10 +292,13 @@
       return;
     }
 
-    const interval = Math.max(
-      80,
-      (60000 / reader.settings.wpm) * reader.settings.chunkSize,
-    );
+    let interval = (60000 / reader.settings.wpm) * reader.settings.chunkSize;
+    // The first chunk of a new line gets a longer dwell so the eye can
+    // complete its return sweep before the highlight moves on.
+    if (startsNewLine(reader.index)) {
+      interval *= LINE_BREAK_PAUSE_FACTOR;
+    }
+    interval = Math.max(80, interval);
     reader.timer = window.setTimeout(() => {
       const nextIndex = reader.index + reader.settings.chunkSize;
 
@@ -251,6 +316,23 @@
     }, interval);
   }
 
+  // Whether the word at `index` begins a new visual line relative to the
+  // one before it. Both rects are read in the same frame (no layout mutation
+  // between them), so a smooth scroll in flight can't skew the comparison.
+  function startsNewLine(index) {
+    if (index <= 0 || index >= reader.wordSpans.length) {
+      return false;
+    }
+    const current = reader.wordSpans[index];
+    const previous = reader.wordSpans[index - 1];
+    if (!current || !previous) {
+      return false;
+    }
+    const currentTop = current.getBoundingClientRect().top;
+    const previousTop = previous.getBoundingClientRect().top;
+    return Math.abs(currentTop - previousTop) > 2;
+  }
+
   function highlightCurrentChunk() {
     const chunkEnd = Math.min(
       reader.index + reader.settings.chunkSize,
@@ -263,6 +345,42 @@
         `${CLASS_PREFIX}-active`,
         idx >= reader.index && idx < chunkEnd,
       );
+
+      // Graded fade around the chunk: the 3 words before it (regression) and
+      // the 3 after it (parafoveal preview). Purely index-based, so it works
+      // across line and paragraph breaks and clamps naturally at the start
+      // and end of the article. Each class is forced to its exact boolean
+      // every tick, so no stale class survives a move.
+      const beforeDistance = reader.index - idx;
+      const afterDistance = idx - (chunkEnd - 1);
+      for (let distance = 1; distance <= CONTEXT_WORDS; distance++) {
+        span.classList.toggle(
+          `${CLASS_PREFIX}-before-${distance}`,
+          beforeDistance === distance,
+        );
+        span.classList.toggle(
+          `${CLASS_PREFIX}-after-${distance}`,
+          afterDistance === distance,
+        );
+      }
+    });
+
+    // Fill the gaps between words so the chunk + fade render as one
+    // continuous band. Each gap takes the highlight of its weaker neighbor
+    // (the lower level), so intensity steps down exactly at word edges and
+    // the window stays a monotonic gradient. The 7 highlight classes are
+    // forced to their exact boolean every tick, same no-stale-state pattern
+    // as the word sweep.
+    reader.gapSpans.forEach((gap, idx) => {
+      if (!gap) {
+        return;
+      }
+      const weakerIdx =
+        highlightLevel(idx - 1) <= highlightLevel(idx) ? idx - 1 : idx;
+      const weakerClass = wordHighlightClass(weakerIdx);
+      for (const cls of [`${CLASS_PREFIX}-active`, ...CONTEXT_CLASSES]) {
+        gap.classList.toggle(cls, weakerClass === cls);
+      }
     });
 
     const active = reader.wordSpans[reader.index];
@@ -275,9 +393,70 @@
     }
   }
 
+  // Highlight level of a word by index, used to pick a gap's color. Pure
+  // index math mirroring the before/after computation in the word sweep:
+  // active = 4, fade distance 1/2/3 = 3/2/1, otherwise 0 (read or untouched).
+  // Out-of-range indices are level 0 so a gap at the article edge takes the
+  // weaker (empty) side and stays unpainted.
+  function highlightLevel(idx) {
+    if (idx < 0 || idx >= reader.wordSpans.length) {
+      return 0;
+    }
+    const chunkEnd = Math.min(
+      reader.index + reader.settings.chunkSize,
+      reader.wordSpans.length,
+    );
+    if (idx >= reader.index && idx < chunkEnd) {
+      return 4;
+    }
+    const beforeDistance = reader.index - idx;
+    if (beforeDistance >= 1 && beforeDistance <= CONTEXT_WORDS) {
+      return CONTEXT_WORDS - beforeDistance + 1;
+    }
+    const afterDistance = idx - (chunkEnd - 1);
+    if (afterDistance >= 1 && afterDistance <= CONTEXT_WORDS) {
+      return CONTEXT_WORDS - afterDistance + 1;
+    }
+    return 0;
+  }
+
+  // The single highlight class a word carries (active / before-N / after-N),
+  // or null when it has none. A gap takes this class from its weaker neighbor
+  // so it paints at the lower of the two surrounding intensities.
+  function wordHighlightClass(idx) {
+    if (idx < 0 || idx >= reader.wordSpans.length) {
+      return null;
+    }
+    const chunkEnd = Math.min(
+      reader.index + reader.settings.chunkSize,
+      reader.wordSpans.length,
+    );
+    if (idx >= reader.index && idx < chunkEnd) {
+      return `${CLASS_PREFIX}-active`;
+    }
+    const beforeDistance = reader.index - idx;
+    if (beforeDistance >= 1 && beforeDistance <= CONTEXT_WORDS) {
+      return `${CLASS_PREFIX}-before-${beforeDistance}`;
+    }
+    const afterDistance = idx - (chunkEnd - 1);
+    if (afterDistance >= 1 && afterDistance <= CONTEXT_WORDS) {
+      return `${CLASS_PREFIX}-after-${afterDistance}`;
+    }
+    return null;
+  }
+
   function clearHighlights() {
     for (const span of reader.wordSpans) {
-      span.classList.remove(`${CLASS_PREFIX}-read`, `${CLASS_PREFIX}-active`);
+      span.classList.remove(
+        `${CLASS_PREFIX}-read`,
+        `${CLASS_PREFIX}-active`,
+        ...CONTEXT_CLASSES,
+      );
+    }
+    for (const gap of reader.gapSpans) {
+      if (gap) {
+        gap.classList.remove(`${CLASS_PREFIX}-active`, ...CONTEXT_CLASSES);
+      }
     }
   }
 
@@ -340,6 +519,79 @@
     }
   }
 
+  // Manual mode: the highlight only advances while Space is held. These
+  // three listeners drive that. They no-op unless the reader is active and
+  // in manual mode, so Space behaves normally on an untouched page, while
+  // typing into a field, or in automatic mode.
+  function onHoldKeyDown(event) {
+    // 1. Only Space drives the hold.
+    if (event.code !== "Space") {
+      return;
+    }
+    // 2. Reader inactive — leave Space to scroll the page as usual.
+    if (reader.wordSpans.length === 0) {
+      return;
+    }
+    // 3. Only manual mode holds to read.
+    if (reader.settings.mode !== "manual") {
+      return;
+    }
+    // 4. Typing into a field must still produce spaces.
+    if (isEditable(event.target)) {
+      return;
+    }
+    // 5. Held Space must not scroll the page — including key repeats.
+    event.preventDefault();
+    // 6. One run() per press. Repeats and an already-held key do nothing;
+    //    a finished reader stays finished.
+    if (event.repeat || reader.spaceHeld) {
+      return;
+    }
+    reader.spaceHeld = true;
+    if (reader.status === "paused") {
+      run();
+    }
+  }
+
+  function onHoldKeyUp(event) {
+    if (event.code !== "Space") {
+      return;
+    }
+    releaseHold();
+  }
+
+  // A keyup is lost when the tab/window loses focus while Space is held;
+  // blur counts as a release so the reader can't run away unattended.
+  function onWindowBlur() {
+    releaseHold();
+  }
+
+  // Shared release path for keyup and blur: drop the held flag and freeze
+  // the reader on the current chunk.
+  function releaseHold() {
+    reader.spaceHeld = false;
+    if (
+      reader.settings.mode === "manual" &&
+      reader.wordSpans.length > 0 &&
+      reader.status === "running"
+    ) {
+      pause();
+      showHud("Hold Space to read");
+    }
+  }
+
+  function isEditable(target) {
+    if (!(target instanceof HTMLElement)) {
+      return false;
+    }
+    return (
+      target.tagName === "INPUT" ||
+      target.tagName === "TEXTAREA" ||
+      target.tagName === "SELECT" ||
+      target.isContentEditable
+    );
+  }
+
   // Returns { node, offset } for the start of a visible (non-collapsed)
   // selection, or null. Uses the range start, not anchorNode: the anchor is
   // where the drag began, which is the *end* of a backwards (right-to-left)
@@ -357,7 +609,13 @@
   function wrapWords(root, anchor = null) {
     const textNodes = collectTextNodesFromBlocks(getReadableBlocks(root));
     const spans = [];
+    const gapSpans = [];
     let anchorIndex = null;
+    // The gap (whitespace) span immediately before the next word, carried
+    // across text nodes: the space before a word often lives in the previous
+    // inline element's text node. null when the next word has no preceding
+    // gap (start of the article, or after a block boundary).
+    let pendingGap = null;
 
     for (const textNode of textNodes) {
       const text = textNode.nodeValue;
@@ -377,7 +635,14 @@
 
       for (const part of parts) {
         if (/^\s+$/.test(part)) {
-          fragment.append(document.createTextNode(part));
+          // Wrap whitespace in its own span so the highlight can paint the
+          // gap between words and the chunk + fade read as one band. A bare
+          // inline span keeps layout and whitespace collapsing intact.
+          const gap = document.createElement("span");
+          gap.className = `${CLASS_PREFIX}-gap`;
+          gap.textContent = part;
+          fragment.append(gap);
+          pendingGap = gap;
           charOffset += part.length;
           continue;
         }
@@ -386,6 +651,11 @@
         span.className = `${CLASS_PREFIX}-word`;
         span.textContent = part;
         spans.push(span);
+        // gapSpans stays parallel to wordSpans: gapSpans[i] is the gap (if
+        // any) immediately before word i, carried in from the whitespace run
+        // most recently seen — even if it was in a previous text node.
+        gapSpans.push(pendingGap);
+        pendingGap = null;
         fragment.append(span);
 
         // The first word span whose character range extends past the caret
@@ -432,7 +702,7 @@
       }
     }
 
-    return { spans, anchorIndex };
+    return { spans, anchorIndex, gapSpans };
   }
 
   function getEstimate() {
@@ -759,6 +1029,8 @@
         5,
       ),
       autoScroll: Boolean(settings.autoScroll),
+      // Unknown values fall back to manual, same spirit as the clamps above.
+      mode: settings.mode === "auto" ? "auto" : "manual",
     };
   }
 
@@ -778,23 +1050,68 @@
     reader.styleEl.id = STYLE_ID;
     reader.styleEl.textContent = `
       .${CLASS_PREFIX}-word {
-        border-radius: 0.2em;
         cursor: pointer;
         transition: background-color 120ms ease, color 120ms ease, opacity 120ms ease;
       }
 
       .${CLASS_PREFIX}-word:hover {
         background: rgba(17, 24, 39, 0.08);
+        border-radius: 0.2em;
       }
 
-      .${CLASS_PREFIX}-word.${CLASS_PREFIX}-active {
+      .${CLASS_PREFIX}-word.${CLASS_PREFIX}-active,
+      .${CLASS_PREFIX}-gap.${CLASS_PREFIX}-active {
         background: #ffdf5f !important;
         color: #111827 !important;
-        box-shadow: 0 0 0 0.12em rgba(17, 24, 39, 0.12);
       }
 
       .${CLASS_PREFIX}-word.${CLASS_PREFIX}-read {
         opacity: 0.45;
+      }
+
+      /* Regression (left of the chunk) and preview (right of the chunk)
+         fade. Placed after the .pssr-read rule on purpose: the rules share
+         specificity with it, so source order decides, and these must win —
+         before-words also carry pssr-read and need to regain legibility
+         (the opacity here overrides the 0.45 above). Same #ffdf5f as the
+         active highlight, increasingly transparent, so the window reads as
+         one gradient spotlight. Each rule also paints the gap between two
+         words at that level, so the band reads as one continuous block. */
+      .${CLASS_PREFIX}-word.${CLASS_PREFIX}-before-1,
+      .${CLASS_PREFIX}-gap.${CLASS_PREFIX}-before-1 {
+        background: rgba(255, 223, 95, 0.4);
+        opacity: 1;
+      }
+
+      .${CLASS_PREFIX}-word.${CLASS_PREFIX}-before-2,
+      .${CLASS_PREFIX}-gap.${CLASS_PREFIX}-before-2 {
+        background: rgba(255, 223, 95, 0.26);
+        opacity: 0.85;
+      }
+
+      .${CLASS_PREFIX}-word.${CLASS_PREFIX}-before-3,
+      .${CLASS_PREFIX}-gap.${CLASS_PREFIX}-before-3 {
+        background: rgba(255, 223, 95, 0.14);
+        opacity: 0.7;
+      }
+
+      .${CLASS_PREFIX}-word.${CLASS_PREFIX}-after-1,
+      .${CLASS_PREFIX}-gap.${CLASS_PREFIX}-after-1 {
+        background: rgba(255, 223, 95, 0.4);
+      }
+
+      .${CLASS_PREFIX}-word.${CLASS_PREFIX}-after-2,
+      .${CLASS_PREFIX}-gap.${CLASS_PREFIX}-after-2 {
+        background: rgba(255, 223, 95, 0.26);
+      }
+
+      .${CLASS_PREFIX}-word.${CLASS_PREFIX}-after-3,
+      .${CLASS_PREFIX}-gap.${CLASS_PREFIX}-after-3 {
+        background: rgba(255, 223, 95, 0.14);
+      }
+
+      .${CLASS_PREFIX}-gap {
+        transition: background-color 120ms ease;
       }
 
       #${HUD_ID} {

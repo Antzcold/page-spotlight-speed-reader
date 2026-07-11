@@ -2,6 +2,7 @@ const DEFAULT_SETTINGS = {
   wpm: 350,
   chunkSize: 1,
   autoScroll: true,
+  mode: "manual",
 };
 
 const state = {
@@ -36,6 +37,9 @@ const els = {
   ),
   autoScrollInput: /** @type {HTMLInputElement} */ (
     document.querySelector("#autoScrollInput")
+  ),
+  manualModeInput: /** @type {HTMLInputElement} */ (
+    document.querySelector("#manualModeInput")
   ),
   wordCount: /** @type {HTMLElement} */ (document.querySelector("#wordCount")),
   timeEstimate: /** @type {HTMLElement} */ (
@@ -85,6 +89,7 @@ function bindControls() {
   els.wpmInput.addEventListener("input", updateEstimateFromCurrentWpm);
   els.chunkInput.addEventListener("change", saveSettings);
   els.autoScrollInput.addEventListener("change", saveSettings);
+  els.manualModeInput.addEventListener("change", saveSettings);
 }
 
 async function toggleReader() {
@@ -186,6 +191,7 @@ function applySettingsToInputs(settings) {
   els.wpmInput.value = String(settings.wpm);
   els.chunkInput.value = String(settings.chunkSize);
   els.autoScrollInput.checked = Boolean(settings.autoScroll);
+  els.manualModeInput.checked = settings.mode !== "auto";
 }
 
 function readSettingsFromInputs() {
@@ -197,6 +203,7 @@ function readSettingsFromInputs() {
       5,
     ),
     autoScroll: els.autoScrollInput.checked,
+    mode: els.manualModeInput.checked ? "manual" : "auto",
   };
 }
 
@@ -215,6 +222,9 @@ function renderStatus(status) {
   };
 
   els.status.textContent = labels[status] ?? "Ready";
+  if (status === "paused" && els.manualModeInput.checked) {
+    els.status.textContent = "Paused — hold Space";
+  }
   els.toggleButton.textContent = status === "running" ? "Pause" : "Start";
 
   if (status === "running") {
@@ -240,6 +250,7 @@ function setControlsEnabled(enabled) {
     els.wpmInput,
     els.chunkInput,
     els.autoScrollInput,
+    els.manualModeInput,
   ]) {
     element.disabled = !enabled;
   }

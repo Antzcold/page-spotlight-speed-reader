@@ -1,11 +1,17 @@
 (() => {
-  /** @typedef {{ wpm: number, chunkSize: number, autoScroll: boolean }} Settings */
+  /** @typedef {{
+   *   wpm: number,
+   *   chunkSize: number,
+   *   autoScroll: boolean,
+   *   mode: "manual" | "auto",
+   * }} Settings */
 
   /** @type {Settings} */
   const DEFAULT_SETTINGS = {
     wpm: 350,
     chunkSize: 1,
     autoScroll: true,
+    mode: "manual",
   };
 
   chrome.commands.onCommand.addListener(async (command) => {
